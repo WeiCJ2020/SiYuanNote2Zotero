@@ -25,62 +25,186 @@ async function onStartup() {
   await onMainWindowLoad(window);
 }
 
+function registerMenu() {
+  const siyuanButton = {
+    tag: "toolbarbutton",
+    id: "siyuan-note",
+    class: ["zotero-tb-button"],
+    attributes: {
+      type: "button",
+      tooltiptext: "SiYuan Note",
+      tabindex: "-1",
+    },
+    listeners: [
+      {
+        type: "mousedown",
+        listener: () => {
+          const pannel = Zotero.getActiveZoteroPane();
+          const item = pannel.getSelectedItems();
+          if (item.length == 0) {
+            const nullAlert = new ztoolkit.Dialog(3, 4)
+              .addCell(0, 0, {
+                tag: "p",
+                properties: {
+                  innerHTML: "没有选中条目",
+                },
+              })
+              .open("警告");
+            return;
+          }
+          const siyuanLink = item[0].getField("extra");
+          if (
+            typeof siyuanLink == "string" &&
+            siyuanLink.startsWith("siyuan://blocks")
+          ) {
+            Zotero.launchURL(siyuanLink);
+          }
+
+          else {
+            const nullAlert = new ztoolkit.Dialog(3, 4)
+              .addCell(0, 0, {
+                tag: "p",
+                properties: {
+                  innerHTML: "没有在“其它”字段中找到 思源笔记 的链接",
+                },
+              })
+              .open("警告");
+          }
+        },
+      },
+    ],
+    children: [
+      {
+        tag: "image",
+        id: "siyuan-note-icon",
+        class: ["toolbarbutton-icon"],
+
+        attributes: {
+          src: `chrome://${config.addonRef}/content/icons/icon1.png`,
+          height: "15",
+          width: "16",
+        },
+      },
+      {
+        tag: "label",
+        class: ["toolbarbutton-text"],
+      },
+    ],
+  };
+
+  const node = document.querySelector("#zotero-tb-advanced-search");
+  if (node != null) {
+    ztoolkit.UI.insertElementBefore(siyuanButton, node);
+  }
+}
+function registerMenu2(syurl: string) {
+
+  // button tabindex="-1" class="toolbarButton underline"
+  //       title="Underline Text"></button><span class="button-background"></span>
+  const siyuanButton = {
+    tag: "a",
+    id: "siyuan-note-icon-reader",
+    classList: ["toolbarbutton-icon"],
+
+    attributes: {
+      href: syurl,
+      height: "15",
+      width: "16",
+    },
+    children: [
+      {
+        tag: "span",
+        classList: ["button-background"]
+      },
+      {
+        tag: "button",
+        id: "siyuan-note-reader",
+        classList: ["toolbarButton", "note"],
+        namespace: "html",
+        attributes: {
+          title: "SiYuan Note",
+          tabindex: "-1",
+
+        },
+      }
+    ],
+  };
+  let a = Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)._iframeWindow
+  ztoolkit.log("123:", a)
+  if (a == undefined) return
+  let node = a.document.querySelector("#viewFind")
+  ztoolkit.log("456:", node)
+  if (node != null) {
+    let newscript = a.document.createElement("script")
+
+    ztoolkit.UI.insertElementBefore(siyuanButton, node)
+    // let syb = ztoolkit.UI.createElement(a?.document, "button", siyuanButton)
+    // node.appendChild(syb)
+
+  }
+
+  // const node = document.querySelector("#zotero-tb-search");
+  // if (node != null) {
+  //   ztoolkit.UI.insertElementBefore(siyuanButton, node);
+  // }
+}
 async function onMainWindowLoad(win: Window): Promise<void> {
   // Create ztoolkit for every window
   addon.data.ztoolkit = createZToolkit();
 
-  const popupWin = new ztoolkit.ProgressWindow(config.addonName, {
-    closeOnClick: true,
-    closeTime: -1,
-  })
-    .createLine({
-      text: getString("startup-begin"),
-      type: "default",
-      progress: 0,
-    })
-    .show();
+  // const popupWin = new ztoolkit.ProgressWindow(config.addonName, {
+  //   closeOnClick: true,
+  //   closeTime: -1,
+  // })
+  //   .createLine({
+  //     text: getString("startup-begin"),
+  //     type: "default",
+  //     progress: 0,
+  //   })
+  //   .show();
 
-  KeyExampleFactory.registerShortcuts();
+  // KeyExampleFactory.registerShortcuts();
 
-  await Zotero.Promise.delay(1000);
-  popupWin.changeLine({
-    progress: 30,
-    text: `[30%] ${getString("startup-begin")}`,
-  });
+  // await Zotero.Promise.delay(1000);
+  // popupWin.changeLine({
+  //   progress: 30,
+  //   text: `[30%] ${getString("startup-begin")}`,
+  // });
 
-  UIExampleFactory.registerStyleSheet();
+  // UIExampleFactory.registerStyleSheet();
 
-  UIExampleFactory.registerRightClickMenuItem();
+  // UIExampleFactory.registerRightClickMenuItem();
 
-  UIExampleFactory.registerRightClickMenuPopup();
+  // UIExampleFactory.registerRightClickMenuPopup();
 
-  UIExampleFactory.registerWindowMenuWithSeparator();
+  // UIExampleFactory.registerWindowMenuWithSeparator();
 
-  await UIExampleFactory.registerExtraColumn();
+  // await UIExampleFactory.registerExtraColumn();
 
-  await UIExampleFactory.registerExtraColumnWithCustomCell();
+  // await UIExampleFactory.registerExtraColumnWithCustomCell();
+  await Promise.all([registerMenu()]);
+  // await UIExampleFactory.registerCustomItemBoxRow();
 
-  await UIExampleFactory.registerCustomItemBoxRow();
+  // UIExampleFactory.registerLibraryTabPanel();
 
-  UIExampleFactory.registerLibraryTabPanel();
+  // await UIExampleFactory.registerReaderTabPanel();
 
-  await UIExampleFactory.registerReaderTabPanel();
+  // PromptExampleFactory.registerNormalCommandExample();
 
-  PromptExampleFactory.registerNormalCommandExample();
+  // PromptExampleFactory.registerAnonymousCommandExample();
 
-  PromptExampleFactory.registerAnonymousCommandExample();
+  // PromptExampleFactory.registerConditionalCommandExample();
 
-  PromptExampleFactory.registerConditionalCommandExample();
+  // await Zotero.Promise.delay(1000);
 
-  await Zotero.Promise.delay(1000);
+  // popupWin.changeLine({
+  //   progress: 100,
+  //   text: `[100%] ${getString("startup-finish")}`,
+  // });
+  // popupWin.startCloseTimer(2000);
 
-  popupWin.changeLine({
-    progress: 100,
-    text: `[100%] ${getString("startup-finish")}`,
-  });
-  popupWin.startCloseTimer(5000);
-
-  addon.hooks.onDialogEvents("dialogExample");
+  // addon.hooks.onDialogEvents("dialogExample");
+  Zotero.log("hello");
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
@@ -109,11 +233,23 @@ async function onNotify(
   // You can add your code to the corresponding notify type
   ztoolkit.log("notify", event, type, ids, extraData);
   if (
-    event == "select" &&
-    type == "tab" &&
-    extraData[ids[0]].type == "reader"
+    event == "add" &&
+    type == "tab"
   ) {
-    BasicExampleFactory.exampleNotifierCallback();
+
+    // BasicExampleFactory.exampleNotifierCallback();
+    await Zotero.Promise.delay(1000);
+    let siyuanLink = Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)._item.parentItem?.getField("extra");
+
+    if (
+      typeof siyuanLink == "string" &&
+      siyuanLink.startsWith("siyuan://blocks")
+    ) {
+      registerMenu2(siyuanLink);
+      // Zotero.launchURL(siyuanLink);
+    }
+
+
   } else {
     return;
   }

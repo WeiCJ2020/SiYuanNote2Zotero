@@ -76,7 +76,7 @@ export class BasicExampleFactory {
       pluginID: config.addonID,
       src: rootURI + "chrome/content/preferences.xhtml",
       label: getString("prefs-title"),
-      image: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      image: `chrome://${config.addonRef}/content/icons/icon1.png`,
       defaultXUL: true,
     };
     ztoolkit.PreferencePane.register(prefOptions);
@@ -198,7 +198,7 @@ export class UIExampleFactory {
 
   @example
   static registerRightClickMenuItem() {
-    const menuIcon = `chrome://${config.addonRef}/content/icons/favicon@0.5x.png`;
+    const menuIcon = `chrome://${config.addonRef}/content/icons/icon2.png`;
     // item menuitem with icon
     ztoolkit.Menu.register("item", {
       tag: "menuitem",
