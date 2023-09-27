@@ -9,6 +9,9 @@ import { config } from "../package.json";
 import { getString, initLocale } from "./utils/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 import { createZToolkit } from "./utils/ztoolkit";
+import { request } from "node:http";
+
+import { createPreviewBox, createPreviewButton } from "./preview";
 
 async function onStartup() {
   await Promise.all([
@@ -25,11 +28,24 @@ async function onStartup() {
   await onMainWindowLoad(window);
 }
 
+function logInfo(text: string) {
+  const nullAlert = new ztoolkit.Dialog(3, 4)
+    .addCell(0, 0, {
+      tag: "p",
+      properties: {
+        innerHTML: `${text}`,
+      },
+    })
+    .open("Log");
+}
 function registerMenu() {
+  // 在Zotero的主界面的Toolbar中添加一个思源笔记的按钮
+
   const siyuanButton = {
     tag: "toolbarbutton",
     id: "siyuan-note",
     class: ["zotero-tb-button"],
+    // namespace:"xul",
     attributes: {
       type: "button",
       tooltiptext: "SiYuan Note",
@@ -38,9 +54,9 @@ function registerMenu() {
     listeners: [
       {
         type: "mousedown",
-        listener: () => {
+        listener: async () => {
           const pannel = Zotero.getActiveZoteroPane();
-          const item = pannel.getSelectedItems();
+          const item = pannel.getSelectedItems()[0];
           if (item.length == 0) {
             const nullAlert = new ztoolkit.Dialog(3, 4)
               .addCell(0, 0, {
@@ -52,23 +68,70 @@ function registerMenu() {
               .open("警告");
             return;
           }
-          const siyuanLink = item[0].getField("extra");
+          const siyuanLink = item.getField("extra");
           if (
             typeof siyuanLink == "string" &&
             siyuanLink.startsWith("siyuan://blocks")
           ) {
             Zotero.launchURL(siyuanLink);
-          }
+          } else {
+            // 创建思源笔记的页面
+            //
+            const itemID = item.key;
+            ztoolkit.log(item.toJSON());
 
-          else {
-            const nullAlert = new ztoolkit.Dialog(3, 4)
-              .addCell(0, 0, {
-                tag: "p",
-                properties: {
-                  innerHTML: "没有在“其它”字段中找到 思源笔记 的链接",
-                },
-              })
-              .open("警告");
+            if (item.isAttachment()) {
+              logInfo("选中的是附件");
+              return 0;
+            }
+            const Url = "http://127.0.0.1:6806/api/filetree/createDocWithMd";
+            const data = {
+              notebook: "20230628150451-27spa4f",
+              path: `/Read/${item.getField("title")}`,
+              // todo:根据不同类型进行判断，如果字段为空则不输出
+              markdown: `Journal：${item.getField("publicationTitle")}
+
+DOI：${item.getField("DOI")}
+              
+Date：${item.getField("date")}
+              
+Abstract：${item.getField("abstractNote")}
+
+---
+              `,
+            };
+            ztoolkit.log(data);
+            const otherPram = {
+              headers: {
+                Authorization: "Token sp5ggbzogpq1hrla",
+                Content_Type: "application/json",
+              },
+              body: JSON.stringify(data),
+              method: "POST",
+            };
+            const res = await Zotero.HTTP.request("POST", Url, {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Token sp5ggbzogpq1hrla",
+              },
+              body: JSON.stringify(data),
+              // credentials: "include"
+            });
+            if (res.status == 200) {
+              Zotero.launchURL(
+                `siyuan://blocks/${JSON.parse(res.response).data}`,
+              );
+              item.setField(
+                "extra",
+                `siyuan://blocks/${JSON.parse(res.response).data}`,
+              );
+              ztoolkit.log(res.response);
+            } else {
+              // window.alert("error" + res.status)
+              console.log(`post ${Url} error`, res);
+            }
+
+            // -----------end--------------
           }
         },
       },
@@ -95,12 +158,14 @@ function registerMenu() {
   const node = document.querySelector("#zotero-tb-advanced-search");
   if (node != null) {
     ztoolkit.UI.insertElementBefore(siyuanButton, node);
+    ztoolkit.UI.insertElementBefore(createPreviewButton(), node);
   }
+
+  document.documentElement.appendChild(createPreviewBox());
+  // ztoolkit.UI.insertElementBefore(imgPreview, node2);
 }
 function registerMenu2(syurl: string) {
-
-  // button tabindex="-1" class="toolbarButton underline"
-  //       title="Underline Text"></button><span class="button-background"></span>
+  // 构建一个HTMLElement对象
   const siyuanButton = {
     tag: "a",
     id: "siyuan-note-icon-reader",
@@ -108,13 +173,11 @@ function registerMenu2(syurl: string) {
 
     attributes: {
       href: syurl,
-      height: "15",
-      width: "16",
     },
     children: [
       {
         tag: "span",
-        classList: ["button-background"]
+        classList: ["button-background"],
       },
       {
         tag: "button",
@@ -124,29 +187,22 @@ function registerMenu2(syurl: string) {
         attributes: {
           title: "SiYuan Note",
           tabindex: "-1",
-
         },
-      }
+      },
     ],
   };
-  let a = Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)._iframeWindow
-  ztoolkit.log("123:", a)
-  if (a == undefined) return
-  let node = a.document.querySelector("#viewFind")
-  ztoolkit.log("456:", node)
+  // 获取pdf阅读界面的窗口对象
+  const a = Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)._iframeWindow;
+  ztoolkit.log("123:", a);
+  if (a == undefined) return;
+  // PDF阅读界面的那个大按钮
+  const node = a.document.querySelector("#viewFind");
+  ztoolkit.log("456:", node);
   if (node != null) {
-    let newscript = a.document.createElement("script")
-
-    ztoolkit.UI.insertElementBefore(siyuanButton, node)
-    // let syb = ztoolkit.UI.createElement(a?.document, "button", siyuanButton)
-    // node.appendChild(syb)
-
+    // 添加一个跳转到思源笔记的按钮
+    // let newscript = a.document.createElement("script")
+    ztoolkit.UI.insertElementBefore(siyuanButton, node);
   }
-
-  // const node = document.querySelector("#zotero-tb-search");
-  // if (node != null) {
-  //   ztoolkit.UI.insertElementBefore(siyuanButton, node);
-  // }
 }
 async function onMainWindowLoad(win: Window): Promise<void> {
   // Create ztoolkit for every window
@@ -204,6 +260,7 @@ async function onMainWindowLoad(win: Window): Promise<void> {
   // popupWin.startCloseTimer(2000);
 
   // addon.hooks.onDialogEvents("dialogExample");
+  Zotero.Annotations.getCacheImagePath;
   Zotero.log("hello");
 }
 
@@ -232,24 +289,22 @@ async function onNotify(
 ) {
   // You can add your code to the corresponding notify type
   ztoolkit.log("notify", event, type, ids, extraData);
-  if (
-    event == "add" &&
-    type == "tab"
-  ) {
-
+  // 当打开pdf的时候，添加跳转按钮
+  if (event == "add" && type == "tab") {
     // BasicExampleFactory.exampleNotifierCallback();
     await Zotero.Promise.delay(1000);
-    let siyuanLink = Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)._item.parentItem?.getField("extra");
 
+    // 获取填写在“其它”字段的思源笔记链接
+    const siyuanLink = Zotero.Reader.getByTabID(
+      Zotero_Tabs.selectedID,
+    )._item.parentItem?.getField("extra");
     if (
       typeof siyuanLink == "string" &&
       siyuanLink.startsWith("siyuan://blocks")
     ) {
+      // PDF的窗口中和zotero的主窗口内容是隔离的，所以将链接传进去
       registerMenu2(siyuanLink);
-      // Zotero.launchURL(siyuanLink);
     }
-
-
   } else {
     return;
   }
