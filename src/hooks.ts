@@ -11,7 +11,13 @@ import { registerPrefsScripts } from "./modules/preferenceScript";
 import { createZToolkit } from "./utils/ztoolkit";
 import { request } from "node:http";
 
-import { createPreviewBox, createPreviewButton } from "./preview";
+import {
+  createPreviewBox,
+  createPreviewButton,
+  addTootip,
+  previewTempStatus,
+} from "./preview";
+import { PassThrough } from "node:stream";
 
 async function onStartup() {
   await Promise.all([
@@ -260,8 +266,6 @@ async function onMainWindowLoad(win: Window): Promise<void> {
   // popupWin.startCloseTimer(2000);
 
   // addon.hooks.onDialogEvents("dialogExample");
-  Zotero.Annotations.getCacheImagePath;
-  Zotero.log("hello");
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
@@ -305,8 +309,21 @@ async function onNotify(
       // PDF的窗口中和zotero的主窗口内容是隔离的，所以将链接传进去
       registerMenu2(siyuanLink);
     }
+    // 修改标注颜色的备注
+    addTootip();
+    // 临时关闭预览功能
+
+    previewTempStatus(true);
+    //
+  } else if (event == "close" && type == "tab") {
+    const a = 1;
+  }
+  // 开启预览功能
+  if (event == "select" && type == "tab" && ids[0] == "zotero-pane") {
+    previewTempStatus(false);
   } else {
-    return;
+    // 临时关闭预览功能
+    previewTempStatus(true);
   }
 }
 
