@@ -1,3 +1,7 @@
+import { config } from "../package.json";
+import { getString, initLocale } from "./utils/locale";
+import { registerPrefsScripts } from "./modules/preferenceScript";
+import { createZToolkit } from "./utils/ztoolkit";
 import {
   BasicExampleFactory,
   HelperExampleFactory,
@@ -5,19 +9,14 @@ import {
   PromptExampleFactory,
   UIExampleFactory,
 } from "./modules/examples";
-import { config } from "../package.json";
-import { getString, initLocale } from "./utils/locale";
-import { registerPrefsScripts } from "./modules/preferenceScript";
-import { createZToolkit } from "./utils/ztoolkit";
-import { request } from "node:http";
-
 import {
   createPreviewBox,
   createPreviewButton,
   addTootip,
   previewTempStatus,
+  throttle,
+  openPDFAnnotation,
 } from "./preview";
-import { PassThrough } from "node:stream";
 
 async function onStartup() {
   await Promise.all([
@@ -26,23 +25,11 @@ async function onStartup() {
     Zotero.uiReadyPromise,
   ]);
   initLocale();
-
   BasicExampleFactory.registerPrefs();
 
   BasicExampleFactory.registerNotifier();
 
   await onMainWindowLoad(window);
-}
-
-function logInfo(text: string) {
-  const nullAlert = new ztoolkit.Dialog(3, 4)
-    .addCell(0, 0, {
-      tag: "p",
-      properties: {
-        innerHTML: `${text}`,
-      },
-    })
-    .open("Log");
 }
 function registerMenu() {
   // 在Zotero的主界面的Toolbar中添加一个思源笔记的按钮
@@ -87,7 +74,6 @@ function registerMenu() {
             ztoolkit.log(item.toJSON());
 
             if (item.isAttachment()) {
-              logInfo("选中的是附件");
               return 0;
             }
             const Url = "http://127.0.0.1:6806/api/filetree/createDocWithMd";
@@ -168,7 +154,8 @@ Abstract：${item.getField("abstractNote")}
   }
 
   document.documentElement.appendChild(createPreviewBox());
-  // ztoolkit.UI.insertElementBefore(imgPreview, node2);
+  const node2 = document.querySelector("#imgPreviewBox") as HTMLElement;
+  node2.addEventListener("click", throttle(openPDFAnnotation, 1000));
 }
 function registerMenu2(syurl: string) {
   // 构建一个HTMLElement对象
@@ -213,69 +200,17 @@ function registerMenu2(syurl: string) {
 async function onMainWindowLoad(win: Window): Promise<void> {
   // Create ztoolkit for every window
   addon.data.ztoolkit = createZToolkit();
-
-  // const popupWin = new ztoolkit.ProgressWindow(config.addonName, {
-  //   closeOnClick: true,
-  //   closeTime: -1,
-  // })
-  //   .createLine({
-  //     text: getString("startup-begin"),
-  //     type: "default",
-  //     progress: 0,
-  //   })
-  //   .show();
-
-  // KeyExampleFactory.registerShortcuts();
-
-  // await Zotero.Promise.delay(1000);
-  // popupWin.changeLine({
-  //   progress: 30,
-  //   text: `[30%] ${getString("startup-begin")}`,
-  // });
-
-  // UIExampleFactory.registerStyleSheet();
-
-  // UIExampleFactory.registerRightClickMenuItem();
-
-  // UIExampleFactory.registerRightClickMenuPopup();
-
-  // UIExampleFactory.registerWindowMenuWithSeparator();
-
-  // await UIExampleFactory.registerExtraColumn();
-
-  // await UIExampleFactory.registerExtraColumnWithCustomCell();
+  // registerMenu();
   await Promise.all([registerMenu()]);
-  // await UIExampleFactory.registerCustomItemBoxRow();
-
-  // UIExampleFactory.registerLibraryTabPanel();
-
-  // await UIExampleFactory.registerReaderTabPanel();
-
-  // PromptExampleFactory.registerNormalCommandExample();
-
-  // PromptExampleFactory.registerAnonymousCommandExample();
-
-  // PromptExampleFactory.registerConditionalCommandExample();
-
-  // await Zotero.Promise.delay(1000);
-
-  // popupWin.changeLine({
-  //   progress: 100,
-  //   text: `[100%] ${getString("startup-finish")}`,
-  // });
-  // popupWin.startCloseTimer(2000);
-
-  // addon.hooks.onDialogEvents("dialogExample");
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
   ztoolkit.unregisterAll();
-  addon.data.dialog?.window?.close();
 }
 
 function onShutdown(): void {
   ztoolkit.unregisterAll();
-  addon.data.dialog?.window?.close();
+
   // Remove addon object
   addon.data.alive = false;
   delete Zotero[config.addonInstance];
@@ -295,6 +230,7 @@ async function onNotify(
   ztoolkit.log("notify", event, type, ids, extraData);
   // 当打开pdf的时候，添加跳转按钮
   if (event == "add" && type == "tab") {
+    Zotero.log("add tab");
     // BasicExampleFactory.exampleNotifierCallback();
     await Zotero.Promise.delay(1000);
 
@@ -309,6 +245,7 @@ async function onNotify(
       // PDF的窗口中和zotero的主窗口内容是隔离的，所以将链接传进去
       registerMenu2(siyuanLink);
     }
+    Zotero.log("modify tooltip");
     // 修改标注颜色的备注
     addTootip();
     // 临时关闭预览功能
@@ -344,38 +281,23 @@ async function onPrefsEvent(type: string, data: { [key: string]: any }) {
 }
 
 function onShortcuts(type: string) {
-  switch (type) {
-    case "larger":
-      KeyExampleFactory.exampleShortcutLargerCallback();
-      break;
-    case "smaller":
-      KeyExampleFactory.exampleShortcutSmallerCallback();
-      break;
-    case "confliction":
-      KeyExampleFactory.exampleShortcutConflictingCallback();
-      break;
-    default:
-      break;
-  }
+  // switch (type) {
+  //   case "larger":
+  //     KeyExampleFactory.exampleShortcutLargerCallback();
+  //     break;
+  //   case "smaller":
+  //     KeyExampleFactory.exampleShortcutSmallerCallback();
+  //     break;
+  //   case "confliction":
+  //     KeyExampleFactory.exampleShortcutConflictingCallback();
+  //     break;
+  //   default:
+  //     break;
+  // }
 }
 
 function onDialogEvents(type: string) {
   switch (type) {
-    case "dialogExample":
-      HelperExampleFactory.dialogExample();
-      break;
-    case "clipboardExample":
-      HelperExampleFactory.clipboardExample();
-      break;
-    case "filePickerExample":
-      HelperExampleFactory.filePickerExample();
-      break;
-    case "progressWindowExample":
-      HelperExampleFactory.progressWindowExample();
-      break;
-    case "vtableExample":
-      HelperExampleFactory.vtableExample();
-      break;
     default:
       break;
   }

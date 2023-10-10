@@ -1,9 +1,9 @@
 {
   "addons": {
-    "siyuannotew@weicj.cn": {
+    "siyuannotewe@weicj.cn": {
       "updates": [
         {
-          "version": "0.0.1",
+          "version": "0.0.12",
           "update_link": "https://github.com/windingwind/zotero-addon-template/releases/latest/download/siyuan-note-for-zotero.xpi",
           "applications": {
             "zotero": {

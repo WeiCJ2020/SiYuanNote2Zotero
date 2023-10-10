@@ -1,16 +1,23 @@
 import { config } from "../package.json";
 
-export { createPreviewBox, createPreviewButton, addTootip, previewTempStatus };
+export {
+  createPreviewBox,
+  createPreviewButton,
+  addTootip,
+  previewTempStatus,
+  throttle,
+  openPDFAnnotation,
+};
 let oldElement: Element | null;
 let previewStatus = false;
 
-const annotationListConfig = {
-  tag1: {
-    color: "#ffd400",
-    text: "黄色",
-    note: "疑问",
-  },
-};
+// const annotationListConfig = {
+//   tag1: {
+//     color: "#ffd400",
+//     text: "黄色",
+//     note: "疑问",
+//   },
+// };
 function changePreviewIcon(status: boolean) {
   if (status == true) {
     const previewIcon = document.querySelector("#quicker-preview-icon");
@@ -29,11 +36,11 @@ function changePreviewIcon(status: boolean) {
 // 按钮切换预览功能的开关
 function switchPreviewStatus() {
   if (previewStatus == false) {
-    document.addEventListener("mousemove", getItemByMouse);
+    document.addEventListener("mousemove", debounce(getItemByMouse, 130));
     changePreviewIcon(true);
     previewStatus = true;
   } else {
-    document.removeEventListener("mousemove", getItemByMouse);
+    document.removeEventListener("mousemove", debounce(getItemByMouse, 130));
     changePreviewIcon(false);
     clearImg();
     previewStatus = false;
@@ -43,10 +50,10 @@ function switchPreviewStatus() {
 function previewTempStatus(closePreview = true) {
   if (previewStatus == true && closePreview == false) {
     Zotero.log("open preview");
-    document.addEventListener("mousemove", getItemByMouse);
+    document.addEventListener("mousemove", debounce(getItemByMouse, 130));
   } else {
     Zotero.log("close preview");
-    document.removeEventListener("mousemove", getItemByMouse);
+    document.removeEventListener("mousemove", debounce(getItemByMouse, 130));
     clearImg();
   }
 }
@@ -60,6 +67,8 @@ function createPreviewBox() {
         top:10px;
         left:10px;
         width:300px;
+        max-height:60%;
+        overflow-y:scroll;
         display:none;
         box-shadow: 2px 3px 7px #949494;
         padding:10px;
@@ -115,6 +124,87 @@ function createPreviewButton() {
   };
   return siyuanButton;
 }
+let timeoutIdT: NodeJS.Timeout | null = null;
+function throttle(callback: (event: MouseEvent) => void, delay: number) {
+  let lastTimestamp = 0;
+
+  return function (event: MouseEvent) {
+    const currentTimestamp = Date.now();
+
+    if (!lastTimestamp || currentTimestamp - lastTimestamp >= delay) {
+      callback(event);
+      lastTimestamp = currentTimestamp;
+    } else {
+      // 如果在指定时间内再次触发事件，取消之前的定时器
+      if (timeoutIdT !== null) {
+        clearTimeout(timeoutIdT);
+      }
+
+      // 设置一个新的定时器，延迟一段时间后执行回调
+      timeoutIdT = setTimeout(() => {
+        callback(event);
+        lastTimestamp = currentTimestamp;
+        timeoutIdT = null;
+      }, delay);
+    }
+  };
+}
+let timeoutIdD: NodeJS.Timeout | null = null;
+function debounce(callback: (event: MouseEvent) => void, delay: number) {
+  return function (event: MouseEvent) {
+    if (timeoutIdD !== null) {
+      clearTimeout(timeoutIdD);
+    }
+
+    timeoutIdD = setTimeout(() => {
+      callback(event);
+      timeoutIdD = null;
+    }, delay);
+  };
+}
+
+function debounceAsync(
+  asyncFunction: (event: MouseEvent) => Promise<0 | undefined>,
+  delay: number,
+) {
+  return function (event: MouseEvent) {
+    if (timeoutIdD != null) {
+      Zotero.log("clear timer");
+      clearTimeout(timeoutIdD);
+    }
+    Zotero.log("set timer");
+    timeoutIdD = setTimeout(async () => {
+      await asyncFunction(event);
+      timeoutIdD = null;
+    }, delay);
+  };
+}
+
+// // 用法示例
+// function handleMouseDebounced(event: MouseEvent) {
+//   console.log(`Mouse event debounced: ${event.clientX}, ${event.clientY}`);
+// }
+
+// const debouncedHandler = debounce(handleMouseDebounced, 300);
+
+// // 添加事件监听器
+// document.addEventListener('mousemove', debouncedHandler);
+
+async function openAnnotation(aid: number, page: number, key: string) {
+  const annotation = await Zotero.Items.getAsync(aid);
+  Zotero.OpenPDF.openToPage(annotation, page, key);
+}
+async function openPDFAnnotation(event: MouseEvent) {
+  Zotero.log(`x:${event.pageX},y:${event.pageY}`);
+  const annotationItem = document.elementFromPoint(event.pageX, event.pageY);
+  Zotero.log(annotationItem?.outerHTML);
+  const aidList = annotationItem?.getAttribute("id")?.split("-");
+  if (aidList == undefined) {
+    return;
+  }
+  clearImg();
+  openAnnotation(parseInt(aidList[0]), parseInt(aidList[1]), aidList[2]);
+}
 // 清除悬浮的图片
 function clearImg() {
   const node = document.querySelector("#imgPreviewBox") as HTMLElement;
@@ -126,11 +216,31 @@ async function getItemByMouse(e: MouseEvent) {
   const x = e.pageX;
   const y = e.pageY;
   const newElement = document.elementFromPoint(x, y);
-  // Zotero.log(newElement?.innerHTML);
+  // Zotero.log(0.1);
   if (newElement != oldElement) {
     oldElement = newElement;
-    // console.log(newElement?.outerHTML);
+    // Zotero.log(0);
+    // 如果是列表页的空白地方，则直接返回
+    if (newElement?.getAttribute("class") == null) {
+      return 0;
+    }
+    const elementClass = (newElement?.attributes as any)?.class.value as string;
+    // 因为悬浮图片没有class，所以会出错返回，意外的实现了鼠标可以悬浮在图片上，后面再用一个更合适的方法实现一下
+    // Zotero.log(1);
+    Zotero.log(elementClass);
+    if (
+      elementClass != undefined &&
+      elementClass?.includes("virtualized-table-body")
+    ) {
+      clearImg();
+      Zotero.log("space area");
+      return 0;
+    }
+    // Zotero.log(2);
+    ztoolkit.log(newElement?.outerHTML);
+    // const rowList = newElement?.querySelectorAll("div.row span[id=title]");
     const rowList = newElement?.querySelectorAll(".cell-text");
+    // Zotero.log(3);
     if (rowList == undefined || rowList?.length < 1) {
       clearImg();
       return;
@@ -144,17 +254,18 @@ async function getItemByMouse(e: MouseEvent) {
       return;
     }
     // ztoolkit.log(2);
-    ztoolkit.log(title);
+    Zotero.log(title);
     // 根据题目搜索条目
     const s = new Zotero.Search({ libraryID: Zotero.Libraries.userLibraryID });
 
     s.addCondition("title", "is", title); //
     const itemIDs = await s.search();
+
     if (itemIDs == undefined || itemIDs.length == 0) {
       clearImg();
       return;
     }
-    // ztoolkit.log(3);
+    ztoolkit.log(`itemID: ${itemIDs}`);
     const hoverItemID = itemIDs[0];
     if (hoverItemID == undefined) {
       clearImg();
@@ -164,36 +275,42 @@ async function getItemByMouse(e: MouseEvent) {
     // ztoolkit.log(4);
     // 获取PDF附件
     const attachmentID = hoverItem.getAttachments()[0];
-
+    Zotero.log(`attachmentID: ${attachmentID}`);
     if (attachmentID == undefined) {
       clearImg();
       return;
     }
+    Zotero.log(`attachmentID: ${attachmentID}`);
     const attachmentItem = await Zotero.Items.getAsync(attachmentID);
     // 筛选标注
     // ztoolkit.log(5);
+    Zotero.log(`attachmentItem:${attachmentItem}`);
     const annotations = attachmentItem.getAnnotations();
     if (annotations == undefined || annotations.length == 0) {
       clearImg();
       return;
     }
+    Zotero.log(`attachmentItem:${attachmentItem}`);
     const previewList = [];
     for (const a of annotations) {
-      if (a.annotationColor == "#f19837") {
+      if (a.annotationColor == "#ff6666") {
         previewList.push(a);
       }
     }
     // 如果没有需要预览的标注
     if (previewList.length == 0) {
+      clearImg();
+      Zotero.log(`没有需要预览的标注`);
       return 0;
     }
     // 设置预览框属性
     const node = document.querySelector("#imgPreviewBox") as HTMLElement;
     if (node != null) {
       node.style.display = "block";
-      node.style.top = y - 20 + "px";
-      node.style.left = x + 50 + "px";
+      node.style.top = y - 30 + "px";
+      node.style.left = x + 10 + "px";
     }
+
     // 提取标注信息,todo:提取评论信息
     // 标注类型：highlight，underline，note，image
     let innerHtml = "";
@@ -209,7 +326,9 @@ async function getItemByMouse(e: MouseEvent) {
           imgSrc.replace(/\\/g, "\\\\"),
           "png",
         );
-        innerHtml += `<img src="${f}" style="width: 100%; height: 100%; margin:10px 5px 2px"/>`;
+
+        innerHtml += `<img src="${f}" id="${attachmentID}-${a.annotationPageLabel}-${a.key}" style="width: 100%; height: 100%; margin:10px 5px 2px"/>`;
+
         if (a.annotationComment) {
           innerHtml += `<p>Note：${a.annotationComment}</p>`;
         }
@@ -218,7 +337,9 @@ async function getItemByMouse(e: MouseEvent) {
         a.annotationType == "highlight"
       ) {
         // 高亮型标注
-        innerHtml += `<p style="
+        innerHtml += `<p 
+        id="${attachmentID}-${a.annotationPageLabel}-${a.key}"
+        style="
         margin:10px 5px 2px;
         border-left:3px green solid;
         background:#eeeeee;
@@ -226,46 +347,31 @@ async function getItemByMouse(e: MouseEvent) {
         ">
         ${a.annotationText}
         </p>`;
+
         if (a.annotationComment) {
           innerHtml += `<p>Note：${a.annotationComment}</p>`;
         }
       }
     }
 
+    Zotero.log(innerHtml);
     node.innerHTML = innerHtml;
-    // ----------------
-    // ztoolkit.log(hoverItem, attachmentItem, innerHtml);
-    // const imgSrc = Zotero.Annotations.getCacheImagePath({
-    //   libraryID: annotation.libraryID,
-    //   key: annotation.key,
-    // });
-
-    // ztoolkit.log(6);
-
-    // const imgNode = document.querySelector("#imgPreview") as HTMLElement;
-    // if (node != null && imgNode != null) {
-    //   node.style.display = "block";
-    //   node.style.top = y + 20 + "px";
-    //   node.style.left = x + 10 + "px";
-    //   const f = await Zotero.File.generateDataURI(
-    //     imgSrc.replace(/\\/g, "\\\\"),
-    //     "png",
-    //   );
-    //   imgNode.setAttribute("src", f);
-    // }
-    // ztoolkit.log(imgSrc);
   }
 }
 
 function addTootip() {
   const tooltipList: { [key: string]: string } = {
     黄色: "疑问",
-    橘色: "重点",
+    红色: "重点/核心",
+    绿色: "思路/启发",
+    紫色: "写作/借鉴",
+    灰色: "漏洞/错误",
   };
   const readerWindow = Zotero.Reader.getByTabID(
     Zotero_Tabs.selectedID,
   )._iframeWindow;
   if (readerWindow == undefined) {
+    Zotero.log("readerWindow undefined");
     return 0;
   }
   const targetNode = readerWindow.document.getElementById("reader-ui");

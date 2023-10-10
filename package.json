@@ -1,13 +1,13 @@
 {
   "name": "siyuan-note-for-zotero",
-  "version": "0.0.1",
+  "version": "0.0.12",
   "description": "connect siyuan note and zotero",
   "config": {
     "addonName": "SiYuan Note",
-    "addonID": "siyuannotew@weicj.cn",
-    "addonRef": "siyuannotew",
+    "addonID": "siyuannotewe@weicj.cn",
+    "addonRef": "siyuannotewe",
     "addonInstance": "SiyuanNoteW",
-    "prefsPrefix": "extensions.zotero.siyuannotew",
+    "prefsPrefix": "extensions.zotero.siyuannotewe",
     "releasePage": "https://github.com/windingwind/zotero-addon-template/releases",
     "updateJSON": "https://raw.githubusercontent.com/windingwind/zotero-addon-template/main/update.json",
     "updateBetaJSON": "https://raw.githubusercontent.com/windingwind/zotero-addon-template/main/update-beta.json"
