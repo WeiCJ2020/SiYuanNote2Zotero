@@ -253,10 +253,10 @@ async function onNotify(
     previewTempStatus(true);
     //
   } else if (event == "close" && type == "tab") {
-    const a = 1;
+    previewTempStatus(false);
   }
   // 开启预览功能
-  if (event == "select" && type == "tab" && ids[0] == "zotero-pane") {
+  else if (event == "select" && type == "tab" && ids[0] == "zotero-pane") {
     previewTempStatus(false);
   } else {
     // 临时关闭预览功能
