@@ -36,11 +36,11 @@ function changePreviewIcon(status: boolean) {
 // 按钮切换预览功能的开关
 function switchPreviewStatus() {
   if (previewStatus == false) {
-    document.addEventListener("mousemove", debounce(getItemByMouse, 130));
+    document.addEventListener("mousemove", getItemByMouseWithDebounce);
     changePreviewIcon(true);
     previewStatus = true;
   } else {
-    document.removeEventListener("mousemove", debounce(getItemByMouse, 130));
+    document.removeEventListener("mousemove", getItemByMouseWithDebounce);
     changePreviewIcon(false);
     clearImg();
     previewStatus = false;
@@ -50,10 +50,10 @@ function switchPreviewStatus() {
 function previewTempStatus(closePreview = true) {
   if (previewStatus == true && closePreview == false) {
     Zotero.log("open preview");
-    document.addEventListener("mousemove", debounce(getItemByMouse, 130));
+    document.addEventListener("mousemove", getItemByMouseWithDebounce);
   } else {
     Zotero.log("close preview");
-    document.removeEventListener("mousemove", debounce(getItemByMouse, 130));
+    document.removeEventListener("mousemove", getItemByMouseWithDebounce);
     clearImg();
   }
 }
@@ -162,7 +162,9 @@ function debounce(callback: (event: MouseEvent) => void, delay: number) {
     }, delay);
   };
 }
-
+function getItemByMouseWithDebounce(event: MouseEvent) {
+  debounce(getItemByMouse, 130)(event);
+}
 function debounceAsync(
   asyncFunction: (event: MouseEvent) => Promise<0 | undefined>,
   delay: number,
