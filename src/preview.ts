@@ -192,9 +192,17 @@ function debounceAsync(
 // // 添加事件监听器
 // document.addEventListener('mousemove', debouncedHandler);
 
-async function openAnnotation(aid: number, page: number, key: string) {
-  const annotation = await Zotero.Items.getAsync(aid);
-  Zotero.OpenPDF.openToPage(annotation, page, key);
+async function openAnnotation(attachmentID: number, annotationID: number) {
+  const a = await Zotero.Items.getAsync(annotationID);
+  // Zotero.OpenPDF.openToPage(annotation, page, key);
+  Zotero.log(a.toJSON());
+
+  const location = {
+    pageIndex: parseInt(a.annotationPageLabel),
+    position: { ...JSON.parse(a.annotationPosition), paths: null },
+  };
+  Zotero.log(location.toString());
+  await Zotero.Reader.open(attachmentID, location);
 }
 async function openPDFAnnotation(event: MouseEvent) {
   Zotero.log(`x:${event.pageX},y:${event.pageY}`);
@@ -205,7 +213,7 @@ async function openPDFAnnotation(event: MouseEvent) {
     return;
   }
   clearImg();
-  openAnnotation(parseInt(aidList[0]), parseInt(aidList[1]), aidList[2]);
+  openAnnotation(parseInt(aidList[0]), parseInt(aidList[1]));
 }
 // 清除悬浮的图片
 function clearImg() {
@@ -329,7 +337,9 @@ async function getItemByMouse(e: MouseEvent) {
           "png",
         );
 
-        innerHtml += `<img src="${f}" id="${attachmentID}-${a.annotationPageLabel}-${a.key}" style="width: 100%; height: 100%; margin:10px 5px 2px"/>`;
+        innerHtml += `<img src="${f}" id="${attachmentID}-${
+          (a as any).itemID
+        }" style="width: 100%; height: 100%; margin:10px 5px 2px"/>`;
 
         if (a.annotationComment) {
           innerHtml += `<p>Note：${a.annotationComment}</p>`;
@@ -340,7 +350,7 @@ async function getItemByMouse(e: MouseEvent) {
       ) {
         // 高亮型标注
         innerHtml += `<p 
-        id="${attachmentID}-${a.annotationPageLabel}-${a.key}"
+        id="${attachmentID}-${(a as any).itemID}"
         style="
         margin:10px 5px 2px;
         border-left:3px green solid;
