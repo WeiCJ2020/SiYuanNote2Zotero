@@ -302,10 +302,16 @@ async function getItemByMouse(e: MouseEvent) {
     }
     Zotero.log(`attachmentItem:${attachmentItem}`);
     const previewList = [];
+    const otherList = [];
     for (const a of annotations) {
       if (a.annotationColor == "#ff6666") {
         previewList.push(a);
+      } else {
+        otherList.push(a);
       }
+    }
+    if (previewList.length <= 2) {
+      previewList.push(...otherList.slice(0, 3 - previewList.length));
     }
     // 如果没有需要预览的标注
     if (previewList.length == 0) {
